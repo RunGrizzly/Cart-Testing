@@ -12,6 +12,8 @@ public class Drivable : MonoBehaviour
     public Vector3 smoothNormal;
     public float trackSmoothing;
 
+    public GameObject gimbal;
+
     public GameObject body;
 
     public NormalProbe forwardProbe;
@@ -73,13 +75,24 @@ public class Drivable : MonoBehaviour
 
     void OnDrawGizmos()
     {
-        dynamicUpPos = transform.position + chassisRigidbody.transform.up * 2;
-        dynamicUpPoint.transform.position = dynamicUpPos;
+        // if (Application.isPlaying == false)
+        // {
+        //     dynamicUpPos = transform.position;
+        //     dynamicUpPoint.transform.position = dynamicUpPos;
+        //     // //Dynamic up position;
+        //     dynamicUpPoint.transform.position = dynamicUpPos;
+        //     //Heading to dynamic up.
+        //     Vector3 dynamicUp = dynamicUpPoint.transform.position - transform.position;
+        //     //Lock the gimbal to our position.
+        //     gimbal.transform.position = transform.position;
+        //     //Have the gimbal look at the up position.
+        //     gimbal.transform.LookAt(dynamicUpPoint.transform, transform.up);
+        // }
 
-        Gizmos.color = Color.white;
-        Gizmos.DrawWireSphere(dynamicUpPoint.transform.position, 0.5f);
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(dynamicUpPos, 0.5f);
+        // Gizmos.color = Color.white;
+        // Gizmos.DrawWireSphere(dynamicUpPoint.transform.position, 0.5f);
+        // Gizmos.color = Color.cyan;
+        // Gizmos.DrawWireSphere(dynamicUpPos, 0.5f);
 
     }
 
@@ -101,6 +114,18 @@ public class Drivable : MonoBehaviour
     void FixedUpdate()
     {
 
+        chassisRigidbody.transform.position = transform.position;
+
+        // //Dynamic up position;
+        dynamicUpPoint.transform.position = dynamicUpPos;
+        //Heading to dynamic up.
+        Vector3 dynamicUp = dynamicUpPoint.transform.position - transform.position;
+        //Lock the gimbal to our position.
+        gimbal.transform.position = transform.position;
+        //Have the gimbal look at the up position.
+        gimbal.transform.LookAt(dynamicUpPoint.transform, transform.up);
+
+
         if (Physics.Raycast(transform.position, -chassisRigidbody.transform.up, out hit, floorCheckDist, layerMask))
         {
 
@@ -109,12 +134,12 @@ public class Drivable : MonoBehaviour
             //ChangeTest
             //Set normal marker to the transform rotation.
             //Checking to see of the 'forward' is consistent.
-            GameObject normalMarkerClone = Instantiate(normalMarker);
-            normalMarkerClone.transform.position = hit.point + hit.normal * hoverHeight;
-            normalMarkerClone.transform.rotation = Quaternion.FromToRotation(Vector3.forward, hit.normal) * Quaternion.Euler(90, 0, 0);
-            normalMarkerClone.GetComponent<Renderer>().material.color = Color.green;
+            // GameObject normalMarkerClone = Instantiate(normalMarker);
+            // normalMarkerClone.transform.position = hit.point + hit.normal * hoverHeight;
+            // normalMarkerClone.transform.rotation = Quaternion.FromToRotation(Vector3.forward, hit.normal) * Quaternion.Euler(90, 0, 0);
+            // normalMarkerClone.GetComponent<Renderer>().material.color = Color.green;
 
-            // Vector3 normalHeading = transform.position - normalMarkerClone.transform.position;
+            Vector3 normalHeading = hit.point - chassisRigidbody.transform.position;
             // float normalDistance = normalHeading.magnitude;
             // Vector3 normalDirection = normalHeading / normalDistance;
 
@@ -129,13 +154,9 @@ public class Drivable : MonoBehaviour
             // Vector3 orientLag = dynamicUpPos - dynamicUpPoint.transform.position;
             // float orientV = orientLag.magnitude * orientationSpeed;
 
-            // //Dynamic up position;
-            dynamicUpPoint.transform.position = Vector3.MoveTowards(dynamicUpPoint.transform.position, dynamicUpPos, orientationSpeed);
-            //Heading to dynamic up.
-            Vector3 dynamicUp = dynamicUpPoint.transform.position - transform.position;
+            //Lerp the parent player object to match the gimbal rotation.
+            transform.rotation = Quaternion.Lerp(transform.rotation, gimbal.transform.rotation, Time.deltaTime * orientationSpeed);
 
-            //Lerp to this angle.
-            transform.LookAt(dynamicUpPoint.transform, transform.up);
             //While object is above the hover height.
             //Attract based on distance.
 
@@ -156,24 +177,31 @@ public class Drivable : MonoBehaviour
             {
                 //we are above the hover height.
                 //Position factor is negative.
-                attractionModifier = positionFactor;
-                repulsionModifier = 1 / positionFactor * 1;
+
+
+
+                attractionModifier = magnetStrength + positionFactor;
+                repulsionModifier = magnetStrength + positionFactor / 2;
             }
 
             if (positionFactor > magnetThreshold)
             {
                 //We are below the hover height
                 //Position factor is positive.
-                repulsionModifier = positionFactor;
-                attractionModifier = 1 / positionFactor * 1;
+                repulsionModifier = magnetStrength + positionFactor;
+                attractionModifier = magnetStrength + positionFactor / 2;
+
+                // transform.Translate(dynamicUpPos * magnetStrength * -1);
 
             }
+
+
 
             // float attraction = (1 - hit.distance / hoverHeight) * attractionModifier;
             // float repulsion = (1 - hit.distance / hoverHeight) * repulsionModifier;
 
-            parentRigidbody.AddForce(dynamicUp * magnetStrength * repulsionModifier);
-            parentRigidbody.AddForce(dynamicUp * magnetStrength * attractionModifier);
+            parentRigidbody.AddForce(dynamicUp * repulsionModifier);
+            parentRigidbody.AddForce(dynamicUp * attractionModifier);
 
             // Destroy(normalMarkerClone);
 
@@ -183,7 +211,7 @@ public class Drivable : MonoBehaviour
             // Vector3 forwarForceAvg = chassisRigidbody.transform.forward * forwardProbe.normal
 
             // Forward force.
-            parentRigidbody.AddForce((chassisRigidbody.transform.forward + forwardProbe.probedForward / 2) * currThrust);
+            parentRigidbody.AddForce(((chassisRigidbody.transform.forward + forwardProbe.probedForward) / 2) * currThrust);
 
             //transform.Translate(chassisRigidbody.transform.forward * currThrust, Space.World);
 
@@ -197,7 +225,7 @@ public class Drivable : MonoBehaviour
         }
         else
         {
-            parentRigidbody.AddForce(Vector3.down * 80);
+            parentRigidbody.AddForce(Vector3.down * 10);
         }
 
     }

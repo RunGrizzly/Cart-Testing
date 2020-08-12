@@ -14,6 +14,7 @@ public class NormalProbe : MonoBehaviour
     public float markerSize;
 
     public Vector3 normal;
+    public Vector3 smoothedNormal;
     public Vector3 point;
 
     public Vector3 probedForward;
@@ -25,6 +26,7 @@ public class NormalProbe : MonoBehaviour
         if (Physics.Raycast(transform.position, -transform.up, out hit, probeDist, layerMask))
         {
             normal = hit.normal;
+            smoothedNormal = NormalSmoother.SmoothedNormal(hit);
             point = hit.point;
 
             Gizmos.color = Color.green;
@@ -35,7 +37,7 @@ public class NormalProbe : MonoBehaviour
 
             Gizmos.color = Color.blue;
             Gizmos.DrawSphere(helperPosition, markerSize);
-            Gizmos.DrawLine(helperPosition, helperPosition + Quaternion.AngleAxis(90, transform.right) * hit.normal);
+            Gizmos.DrawLine(helperPosition, helperPosition + Quaternion.AngleAxis(90, transform.right) * smoothedNormal);
 
         }
         else
@@ -53,8 +55,9 @@ public class NormalProbe : MonoBehaviour
         if (Physics.Raycast(transform.position, -transform.up, out hit, probeDist, layerMask))
         {
             normal = hit.normal;
+            smoothedNormal = NormalSmoother.SmoothedNormal(hit);
             point = hit.point;
-            probedForward = Quaternion.AngleAxis(90, transform.right) * hit.normal;
+            probedForward = Quaternion.AngleAxis(90, transform.right) * smoothedNormal;
 
         }
     }

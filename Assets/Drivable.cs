@@ -6,83 +6,75 @@ public class Drivable : MonoBehaviour
 {
     //The raycast with important hit information related to the normal of the surface.
     RaycastHit hit;
+    public LayerMask layerMask;
+
+    public List<Rigidbody> wheels = new List<Rigidbody>();
+    public List<NormalProbe> normalProbes = new List<NormalProbe>();
+
+    public GameObject forcePointFront;
+    public GameObject forcePointBack;
+    public GameObject gimbal;
+    public GameObject dynamicUpPoint;
+    public GameObject body;
+    public GameObject normalMarker;
+
+    Vector3 forwardDirection;
+    Vector3 reverseDirection;
     Vector3 lastNormal = Vector3.zero;
     Vector3 lastPoint = Vector3.zero;
-
-    // public Vector3 smoothNormal;
-    public float trackSmoothing;
-
-    public GameObject gimbal;
-    public float gimbalRotOffset;
-
-    public GameObject body;
-
-    Vector3 accelDirection;
-
-    public float maxVelocity;
-    public float maxYVelocity;
+    Vector3 attraction;
+    Vector3 repulsion;
+    Vector3 dynamicUpPos;
+    Vector3 hoverPos;
 
     public NormalProbe forwardProbe;
     public NormalProbe backProbe;
     public NormalProbe leftProbe;
     public NormalProbe rightProbe;
-    public List<NormalProbe> normalProbes = new List<NormalProbe>();
-
-    public GameObject dynamicUpPoint;
-    public float dynamicUpHeight;
-    public float orientationSpeed;
-    Vector3 dynamicUpPos;
 
     public Rigidbody parentRigidbody;
     public Rigidbody chassisRigidbody;
-    float deadZone = 0.1f;
 
-    public float magnetiseDistance;
+    public float forwardAcl;
+    public float backwardAcl;
+    public float maxVelocity;
+    public float maxYVelocity;
+    public float yDamp;
+    public float dynamicUpHeight;
+    public float orientationSpeed;
 
-    [DebugGUIGraph]
-    float attractionModifier;
-    [DebugGUIGraph]
-    float repulsionModifier;
-
-    [Range(0, 50.0f)]
     public float magnetStrength;
-
+    public float predictiveLift;
+    public float magnetiseDistance;
     [Range(0, 2.0f)]
     public float magnetThreshold;
-
     public float floorCheckDist;
-
     public float rotationFix;
-
-    GameObject orientation;
-    public GameObject normalMarker;
-    // GameObject normalMarkerClone;
-
-    public Transform com;
-
-    public float hoverForce = 1500f;
-    public float gravityForce = 1000f;
     public float hoverHeight = 1.35f;
-    public List<Rigidbody> wheels = new List<Rigidbody>();
-
-    public float forwardAcl = 10000.0f;
     public float brakeStrength = 2500.0f;
-    float currThrust = 0.0f;
-    float currBrake = 0.0f;
-
     public float turnStrength = 10f;
     [Range(-45, 45)]
+    float currThrust = 0.0f;
+    float currBrake = 0.0f;
+    float attractionModifier;
+    float repulsionModifier;
     float currTurn = 0.0f;
-
-    public GameObject leftAirBrake;
-    public GameObject rightAirBrake;
-    //public ParticleSystem[] dustTrails = new ParticleSystem[4];
-
-    public LayerMask layerMask;
+    //Rotate the gimbal equal to the dive offset.
+    float dive;
+    float positionFactor;
+    //Distance to target height.
+    float magnetSnapModifier;
 
     void Start()
     {
-        // rigidbody = GetComponent<Rigidbody>();
+        dynamicUpPos = transform.position + chassisRigidbody.transform.up * dynamicUpHeight;
+        dynamicUpPoint.transform.position = dynamicUpPos;
+
+        //Heading to dynamic up.
+        Vector3 dynamicUp = dynamicUpPoint.transform.position - transform.position;
+
+        //Lock the gimbal to our position.
+        gimbal.transform.position = transform.position;
 
     }
 
@@ -101,13 +93,23 @@ public class Drivable : MonoBehaviour
 
     }
 
+    void LevelOut()
+    {
+        //Level self
+        dynamicUpPos = Vector3.Lerp(dynamicUpPos, transform.position + Vector3.up * dynamicUpHeight, Time.deltaTime * orientationSpeed / 4);
+    }
+
     void OnDrawGizmos()
     {
         if (Application.isPlaying == false)
         {
 
+            dynamicUpPos = transform.position + chassisRigidbody.transform.up * dynamicUpHeight;
+            dynamicUpPoint.transform.position = dynamicUpPos;
+
             //Heading to dynamic up.
             Vector3 dynamicUp = dynamicUpPoint.transform.position - transform.position;
+
             //Lock the gimbal to our position.
             gimbal.transform.position = transform.position;
             // //Have the gimbal look at the up position.
@@ -119,193 +121,161 @@ public class Drivable : MonoBehaviour
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireSphere(dynamicUpPos, 0.5f);
 
-        Gizmos.DrawLine(transform.position, transform.position + accelDirection * 10);
-        Gizmos.DrawLine(transform.position, transform.position + -chassisRigidbody.transform.up * floorCheckDist);
+        // Gizmos.DrawRay(transform.position, accelDirection,);
 
+        Gizmos.color = Color.blue;
+        Gizmos.DrawSphere(transform.position + -chassisRigidbody.transform.up * floorCheckDist, 0.5f);
         Gizmos.color = Color.green;
-        Gizmos.DrawLine(transform.position, transform.position + -chassisRigidbody.transform.up * magnetiseDistance);
+        //Gizmos.DrawSphere(transform.position + -chassisRigidbody.transform.up * magnetiseDistance, 0.5f);
+
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawRay(transform.position, attraction);
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawRay(transform.position, repulsion);
+
+        Gizmos.color = Color.blue;
+        Gizmos.DrawCube(hoverPos, new Vector3(1f, 1f, 1f));
 
     }
 
     void Update()
     {
 
-        // Vector3 normalsSum = normalProbes[0].normal + normalProbes[1].normal + normalProbes[2].normal + normalProbes[3].normal;
-
-        // smoothNormal = normalsSum / normalProbes.Count;
-
         //Thrust
         currThrust = Input.GetAxis("RightTrigger") * forwardAcl;
-        currBrake = Input.GetAxis("LeftTrigger") * brakeStrength;
+        currBrake = Input.GetAxis("LeftTrigger") * backwardAcl;
 
         currTurn = Input.GetAxis("LeftStickHorizontal") * turnStrength * Input.GetAxis("RightTrigger");
+
+        Debug.Log(VelocityFilter.GetLocalVelocity(parentRigidbody));
 
     }
 
     void FixedUpdate()
     {
 
-        chassisRigidbody.transform.position = transform.position;
-        // //Dynamic up position;
-        dynamicUpPoint.transform.position = dynamicUpPos;
+        VelocityFilter.DampY(parentRigidbody, maxYVelocity, yDamp);
+        //Lock chassis to position.
 
-        //Heading to dynamic up.
+        //TODO: Add phyiscality with a configurable joint.
+        chassisRigidbody.transform.position = transform.position;
+
+        //Update the dynamic up point.
+        dynamicUpPoint.transform.position = dynamicUpPos;
+        //Then update our heading.
         Vector3 dynamicUp = dynamicUpPoint.transform.position - transform.position;
-        //Lock the gimbal to our position.
-        gimbal.transform.position = transform.position;
+
         //Have the gimbal look at the up position.
         gimbal.transform.LookAt(dynamicUpPoint.transform, transform.up);
+        //Lerp the parent player object to match the gimbal rotation.
+        transform.rotation = Quaternion.Lerp(transform.rotation, gimbal.transform.rotation, Time.deltaTime * orientationSpeed);
+
+        chassisRigidbody.AddTorque(chassisRigidbody.transform.up * turnStrength * Input.GetAxis("LeftStickHorizontal"));
 
         if (Physics.Raycast(transform.position, -chassisRigidbody.transform.up, out hit, floorCheckDist, layerMask))
         {
 
             //Do this always when we are inside floor check distance.
+
             float orientationSpeedAdj = orientationSpeed * (1 / hit.distance);
             float magnetStrengthAdj = magnetStrength * (1 / hit.distance);
 
             Vector3 smoothNormal = NormalSmoother.SmoothedNormal(hit);
+            Debug.DrawRay(hit.point, smoothNormal * 5.0f, Color.white, 2.0f);
+
+            hoverPos = hit.point + smoothNormal * hoverHeight;
 
             if (hit.distance > magnetiseDistance)
             {
-
+                //If we haven't reached magnetise distance.
+                LevelOut();
+                gimbal.transform.position = transform.position;
                 parentRigidbody.drag = 0;
-                parentRigidbody.AddForce(Vector3.down * 20);
-
-                // //Do this when we are in magentise distance.
-                // if (parentRigidbody.velocity.sqrMagnitude > maxVelocity)
-                // {
-                //     parentRigidbody.velocity *= 0.99f;
-                // }
+                parentRigidbody.AddForce(Vector3.down * 50);
 
             }
 
             else if (hit.distance < magnetiseDistance)
             {
 
+                //If we are in magentise ditance.
+
+                //Adjust the probes predictive forward based on current speed.
+                foreach (NormalProbe normalProbe in normalProbes)
+                {
+                    //Assign predictive lift as a percentage of velocity.
+                    normalProbe.predictionFactor = (parentRigidbody.velocity.magnitude / 100) * predictiveLift;
+                }
+
                 parentRigidbody.drag = 3;
 
-                // //Do this when we are in magentise distance.
-                // if (parentRigidbody.velocity.sqrMagnitude > maxVelocity)
-                // {
-                //     parentRigidbody.velocity *= 0.75f;
-                // }
+                //Snap our gimbal to our hover height.
+                gimbal.transform.position = hoverPos;
+                //Lerp the player position to the gimbal position.
+                transform.position = hoverPos;
 
-                //Lerp the parent player object to match the gimbal rotation.
-                transform.rotation = Quaternion.Lerp(transform.rotation, gimbal.transform.rotation, Time.deltaTime * orientationSpeedAdj);
-
-                orientation = new GameObject();
-                orientation.name = "Orientation";
-                //ChangeTest
-                //Set normal marker to the transform rotation.
-                //Checking to see of the 'forward' is consistent.
-                // GameObject normalMarkerClone = Instantiate(normalMarker);
-                // normalMarkerClone.transform.position = hit.point + hit.normal * hoverHeight;
-                // normalMarkerClone.transform.rotation = Quaternion.FromToRotation(Vector3.forward, hit.normal) * Quaternion.Euler(90, 0, 0);
-                // normalMarkerClone.GetComponent<Renderer>().material.color = Color.green;
+                //Adjust the acceleration direction to use the predictive forward from our forward probe.
+                forwardDirection = forwardProbe.probedForward;
+                reverseDirection = backProbe.probedForward;
 
                 Vector3 normalHeading = hit.point - chassisRigidbody.transform.position;
-                // float normalDistance = normalHeading.magnitude;
-                // Vector3 normalDirection = normalHeading / normalDistance;
 
-                // /Debug.Log("Player hit the floor");
-                Debug.Log("Normal up is " + hit.normal);
-                Debug.DrawLine(transform.position, hit.point, Color.green, 1.0f);
-
-                dynamicUpPos = hit.point + NormalSmoother.SmoothedNormal(hit) * dynamicUpHeight;
-
-                //Make the car orient faster the further the projected up gets away.
-
-                // Vector3 orientLag = dynamicUpPos - dynamicUpPoint.transform.position;
-                // float orientV = orientLag.magnitude * orientationSpeed;
+                // //Normal way of doing it.
+                dynamicUpPos = hit.point + smoothNormal * dynamicUpHeight;
+                // //Unsmoothed(road mesh only works with this, apparently)
+                // dynamicUpPos = hit.point + hit.normal * dynamicUpHeight;
 
                 //Rotate the gimbal equal to the dive offset.
-                float dive = Vector3.Angle(forwardProbe.probedForward, chassisRigidbody.transform.forward);
-                Debug.Log("Dive angle is " + dive);
+                dive = Vector3.Angle(forwardProbe.probedForward, chassisRigidbody.transform.forward);
 
-                // /gimbal.transform.RotateAround(gimbal.transform.position, chassisRigidbody.transform.right, gimbalRotOffset);
-
-                //While object is above the hover height.
-                //Attract based on distance.
-
-                //While object is below hover height.
-                //Repel based on distance.
-
-                //How to get a signed distance based on normal.
-                //Get position factor from vector3 dot.
-
-                float positionFactor = Vector3.Dot(chassisRigidbody.transform.up, hit.point + smoothNormal * hoverHeight - transform.position);
+                positionFactor = Vector3.Dot(chassisRigidbody.transform.up, hoverPos - transform.position);
 
                 //Distance to target height.
-                float magnetSnapModifier = Vector3.Distance(transform.position, hit.point + smoothNormal * hoverHeight);
+                magnetSnapModifier = Vector3.Distance(transform.position, hoverPos);
 
-                Debug.Log("Position factor is " + positionFactor);
+                // attraction = (dynamicUp.normalized * repulsionModifier);
+                // repulsion = (dynamicUp.normalized * attractionModifier);
 
-                float attractionModifier = 0;
-
-                float repulsionModifier = 0;
-
-                if (positionFactor < magnetThreshold * -1)
-                {
-                    //we are above the hover height.
-                    //Position factor is negative.
-
-                    attractionModifier = positionFactor * 1 / hit.distance;
-                    repulsionModifier = (positionFactor * 1 / hit.distance) / 4;
-                }
-
-                if (positionFactor > magnetThreshold)
-                {
-                    //We are below the hover height
-                    //Position factor is positive.
-                    repulsionModifier = positionFactor * 1 / hit.distance;
-                    attractionModifier = (positionFactor * 1 / hit.distance) / 4;
-
-                    // transform.Translate(dynamicUpPos * magnetStrength * -1);
-
-                }
-
-                Debug.Log("Attract force is " + attractionModifier);
-                Debug.Log("Repel force " + repulsionModifier);
-
-                // float attraction = (1 - hit.distance / hoverHeight) * attractionModifier;
-                // float repulsion = (1 - hit.distance / hoverHeight) * repulsionModifier;
-
-                parentRigidbody.AddForce(dynamicUp * magnetStrengthAdj * repulsionModifier);
-                parentRigidbody.AddForce(dynamicUp * magnetStrengthAdj * attractionModifier);
-
-                // Destroy(normalMarkerClone);
-
-                Destroy(orientation);
-
-                // //Get averaged forward force.
-                // Vector3 forwarForceAvg = chassisRigidbody.transform.forward * forwardProbe.normal
-
-                accelDirection = forwardProbe.probedForward;
+                // parentRigidbody.AddForce(attraction);
+                // parentRigidbody.AddForce(repulsion);
 
                 // Forward force.
-                parentRigidbody.AddForce(accelDirection * currThrust);
-
-                // //Speed limiting.
-                // if (rigidbody.velocity.sqrMagnitude > maxVelocity)
-                // {
-                //     //smoothness of the slowdown is controlled by the 0.99f, 
-                //     //0.5f is less smooth, 0.9999f is more smooth
-                //     rigidbody.velocity *= 0.75f;
-                // }
+                parentRigidbody.AddForceAtPosition(forwardDirection * currThrust, forcePointFront.transform.position);
+                // Backward force.
+                parentRigidbody.AddForceAtPosition(reverseDirection * currBrake, forcePointBack.transform.position);
 
                 lastNormal = hit.normal;
                 lastPoint = hit.point;
+
             }
 
         }
+        //If we are outside floor check distance.
         else
         {
-            parentRigidbody.drag = 0;
-            parentRigidbody.AddForce(Vector3.down * 50);
+
             //Do this outside floor check distance.
+
+            LevelOut();
+            gimbal.transform.position = transform.position;
+            VelocityFilter.LockUpwards(parentRigidbody, yDamp);
+            parentRigidbody.drag = 0f;
+            parentRigidbody.AddForce(Vector3.down * 70);
+
         }
 
-        chassisRigidbody.AddTorque(chassisRigidbody.transform.up * turnStrength * Input.GetAxis("LeftStickHorizontal"));
+        Debug.Log("Position factor is " + positionFactor);
+        Debug.Log("Absolute PF is " + Mathf.Abs(positionFactor));
+        Debug.Log("Distance from hover height is " + magnetSnapModifier);
+        Debug.Log("Attract force is " + attractionModifier);
+        Debug.Log("Repel force " + repulsionModifier);
+        Debug.Log("Velocity magnitude is " + parentRigidbody.velocity.magnitude);
+        Debug.Log("Normal up is " + hit.normal);
+        Debug.Log("Dive angle is " + dive);
+
+        Debug.DrawRay(forwardProbe.transform.position, forwardProbe.probedForward * 5, Color.white, 3.0f);
+        Debug.DrawRay(transform.position, parentRigidbody.velocity / 20, Color.yellow, 3.0f);
 
     }
+
 }

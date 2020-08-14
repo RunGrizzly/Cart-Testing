@@ -5,9 +5,12 @@ using UnityEngine;
 public class NormalProbe : MonoBehaviour
 {
 
-    //public float probeSpread;
+    public bool drawGizmo;
 
     public float probeDist;
+    //This float will adjust forward prediction power based on velocity.
+    public float predictionFactor;
+
     public LayerMask layerMask;
 
     [Range(0, 3)]
@@ -21,35 +24,38 @@ public class NormalProbe : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-
-        RaycastHit hit;
-        if (Physics.Raycast(transform.position, -transform.up, out hit, probeDist, layerMask))
+        if (drawGizmo == true)
         {
-            normal = hit.normal;
-            smoothedNormal = NormalSmoother.SmoothedNormal(hit);
-            point = hit.point;
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position, -transform.up, out hit, probeDist, layerMask))
+            {
 
-            Gizmos.color = Color.green;
-            Gizmos.DrawLine(transform.position, hit.point);
-            Gizmos.DrawSphere(hit.point, markerSize);
+                normal = hit.normal;
+                smoothedNormal = NormalSmoother.SmoothedNormal(hit);
+                point = hit.point;
 
-            Vector3 helperPosition = transform.position + -transform.up * hit.distance / 2;
+                Gizmos.color = Color.green;
+                Gizmos.DrawLine(transform.position, hit.point);
+                Gizmos.DrawSphere(hit.point, markerSize);
 
-            Gizmos.color = Color.blue;
-            Gizmos.DrawSphere(helperPosition, markerSize);
-            Gizmos.DrawLine(helperPosition, helperPosition + Quaternion.AngleAxis(90, transform.right) * smoothedNormal);
+                Vector3 helperPosition = transform.position + -transform.up * hit.distance / 2;
 
-        }
-        else
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawLine(transform.position, transform.position + -transform.up * probeDist);
+                Gizmos.color = Color.blue;
+                Gizmos.DrawSphere(helperPosition, markerSize);
+                Gizmos.DrawLine(helperPosition, helperPosition + Quaternion.AngleAxis(90, transform.right) * smoothedNormal);
+
+            }
+            else
+            {
+                Gizmos.color = Color.red;
+                Gizmos.DrawLine(transform.position, transform.position + -transform.up * probeDist);
+            }
         }
 
     }
 
     // Update is called once per frame
-    void Update()
+    void FixedUpdate()
     {
         RaycastHit hit;
         if (Physics.Raycast(transform.position, -transform.up, out hit, probeDist, layerMask))
@@ -57,7 +63,7 @@ public class NormalProbe : MonoBehaviour
             normal = hit.normal;
             smoothedNormal = NormalSmoother.SmoothedNormal(hit);
             point = hit.point;
-            probedForward = Quaternion.AngleAxis(90, transform.right) * smoothedNormal;
+            probedForward = Quaternion.AngleAxis((90 - predictionFactor), transform.right) * smoothedNormal;
 
         }
     }

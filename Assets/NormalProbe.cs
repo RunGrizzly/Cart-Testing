@@ -16,11 +16,14 @@ public class NormalProbe : MonoBehaviour
     [Range(0, 3)]
     public float markerSize;
 
+    Vector3 helperPosition;
+
     public Vector3 normal;
     public Vector3 smoothedNormal;
     public Vector3 point;
 
     public Vector3 probedForward;
+    public Vector3 probedForwardAdj;
 
     private void OnDrawGizmos()
     {
@@ -38,11 +41,10 @@ public class NormalProbe : MonoBehaviour
                 Gizmos.DrawLine(transform.position, hit.point);
                 Gizmos.DrawSphere(hit.point, markerSize);
 
-                Vector3 helperPosition = transform.position + -transform.up * hit.distance / 2;
+                helperPosition = transform.position + -transform.up * hit.distance / 2;
 
                 Gizmos.color = Color.blue;
                 Gizmos.DrawSphere(helperPosition, markerSize);
-                Gizmos.DrawLine(helperPosition, helperPosition + Quaternion.AngleAxis(90, transform.right) * smoothedNormal);
 
             }
             else
@@ -63,7 +65,10 @@ public class NormalProbe : MonoBehaviour
             normal = hit.normal;
             smoothedNormal = NormalSmoother.SmoothedNormal(hit);
             point = hit.point;
-            probedForward = Quaternion.AngleAxis((90 - predictionFactor), transform.right) * smoothedNormal;
+            probedForward = Quaternion.AngleAxis((90), transform.right) * smoothedNormal;
+            probedForwardAdj = Quaternion.AngleAxis((90 - predictionFactor), transform.right) * smoothedNormal;
+            Debug.DrawRay(helperPosition, probedForward * 5.0f, Color.blue, 2.0f);
+            Debug.DrawRay(helperPosition, probedForwardAdj * 5.0f, Color.cyan, 2.0f);
 
         }
     }

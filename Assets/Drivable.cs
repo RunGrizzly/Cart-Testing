@@ -4,19 +4,30 @@ using UnityEngine;
 
 public class Drivable : MonoBehaviour
 {
+
     //The raycast with important hit information related to the normal of the surface.
     RaycastHit hit;
-    public LayerMask layerMask;
 
-    public List<Rigidbody> wheels = new List<Rigidbody>();
-    public List<NormalProbe> normalProbes = new List<NormalProbe>();
-
+    [Space(5)]
+    [Header("Required References")]
     public GameObject forcePointFront;
     public GameObject forcePointBack;
     public GameObject gimbal;
     public GameObject dynamicUpPoint;
     public GameObject body;
     public GameObject normalMarker;
+    [Space(5)]
+    public NormalProbe forwardProbe;
+    public NormalProbe backProbe;
+    public NormalProbe leftProbe;
+    public NormalProbe rightProbe;
+    public List<NormalProbe> normalProbes = new List<NormalProbe>();
+    [Space(5)]
+    public Rigidbody parentRigidbody;
+    public Rigidbody chassisRigidbody;
+    public List<Rigidbody> wheels = new List<Rigidbody>();
+    [Space(5)]
+    public LayerMask layerMask;
 
     Vector3 forwardDirection;
     Vector3 reverseDirection;
@@ -25,45 +36,44 @@ public class Drivable : MonoBehaviour
     Vector3 attraction;
     Vector3 repulsion;
     Vector3 dynamicUpPos;
+    Vector3 dynamicUpHeading;
     Vector3 hoverPos;
 
-    public NormalProbe forwardProbe;
-    public NormalProbe backProbe;
-    public NormalProbe leftProbe;
-    public NormalProbe rightProbe;
-
-    public Rigidbody parentRigidbody;
-    public Rigidbody chassisRigidbody;
-
-    public float forwardAcl;
-    public float backwardAcl;
+    [Space(5)]
+    [Header("Physics Limits")]
     public float maxVelocity;
     public float maxYVelocity;
     public float yDamp;
-    public float dynamicUpHeight;
-    public float orientationSpeed;
 
+    [Space(5)]
+    [Header("Physics Parameters")]
+    public float dynamicUpHeight;
+    public float magnetiseDistance;
+    public float orientationSpeed;
     public float magnetStrength;
     public float predictiveLift;
-    public float magnetiseDistance;
-    [Range(0, 2.0f)]
-    public float magnetThreshold;
     public float floorCheckDist;
-    public float rotationFix;
-    public float hoverHeight = 1.35f;
-    public float brakeStrength = 2500.0f;
-    public float turnStrength = 10f;
-    [Range(-45, 45)]
-    float currThrust = 0.0f;
-    float currBrake = 0.0f;
-    float attractionModifier;
-    float repulsionModifier;
-    float currTurn = 0.0f;
+    public float levelSpeed;
+    public float hoverHeight;
+    //Distance to target height.
+    float magnetSnapModifier;
     //Rotate the gimbal equal to the dive offset.
     float dive;
     float positionFactor;
-    //Distance to target height.
-    float magnetSnapModifier;
+
+    [Space(5)]
+    [Header("Turning")]
+    public float turnStrength;
+    public float handbrakeStrength;
+    float turnModifier;
+    [Range(-45, 45)]
+    float currTurn = 0.0f;
+    [Header("Movement")]
+    public float forwardAcl;
+    public float backwardAcl;
+    public float brakeStrength;
+    float currThrust = 0.0f;
+    float currBrake = 0.0f;
 
     void Start()
     {
@@ -91,12 +101,6 @@ public class Drivable : MonoBehaviour
         avgNormal = avgNormal / normalProbes.Count;
         return avgNormal;
 
-    }
-
-    void LevelOut()
-    {
-        //Level self
-        dynamicUpPos = Vector3.Lerp(dynamicUpPos, transform.position + Vector3.up * dynamicUpHeight, Time.deltaTime * orientationSpeed / 4);
     }
 
     void OnDrawGizmos()
@@ -138,14 +142,76 @@ public class Drivable : MonoBehaviour
 
     }
 
+    //If we're upside down and in freefall.
+    void LevelOut()
+    {
+        //Level self
+        dynamicUpPos = Vector3.Lerp(dynamicUpPos, transform.position + Vector3.up * dynamicUpHeight, Time.deltaTime * levelSpeed);
+    }
+    //If we are sticking to a surface.
+    void UpdatePlayerUp()
+    {
+        //Update the dynamic up point. Lerp from current point to new point.
+        dynamicUpPoint.transform.position = dynamicUpPos;
+
+        //Have the gimbal look at the up position.
+        gimbal.transform.LookAt(dynamicUpPoint.transform, transform.up);
+
+        //Lerp the parent player object to match the gimbal rotation.
+        transform.rotation = Quaternion.Lerp(transform.rotation, gimbal.transform.rotation, Time.deltaTime * orientationSpeed);
+
+        //Then update our heading.
+        dynamicUpHeading = dynamicUpPoint.transform.position - transform.position;
+    }
+
+    IEnumerator DoHandbrake()
+    {
+
+        Debug.Log("Handbraking");
+
+        //Initial boost.
+        parentRigidbody.AddForce(chassisRigidbody.transform.forward * ((VelocityFilter.GetLocalVelocity(chassisRigidbody).z / 10 * Mathf.Abs(Input.GetAxisRaw("LeftStickHorizontal"))) * handbrakeStrength));
+
+        while (Input.GetButton("RightBumper"))
+        {
+            //Modify turn based on velocity and handbrake strength.
+
+            turnModifier = Mathf.Abs(VelocityFilter.GetLocalVelocity(chassisRigidbody).x) / 100 * handbrakeStrength;
+
+            yield return null;
+        }
+
+        //Reset turn
+        turnModifier = turnStrength;
+
+    }
+
+    IEnumerator DoBoost()
+    {
+
+        Debug.Log("Boosting");
+
+        float t = 0;
+
+        while (Input.GetButton("ControllerA") && t < 2.25f)
+        {
+            //Modify turn based on velocity and handbrake strength.
+            currThrust *= 1.25f;
+            t += Time.deltaTime;
+
+            yield return null;
+        }
+
+    }
+
     void Update()
     {
 
         //Thrust
         currThrust = Input.GetAxis("RightTrigger") * forwardAcl;
         currBrake = Input.GetAxis("LeftTrigger") * backwardAcl;
-
-        currTurn = Input.GetAxis("LeftStickHorizontal") * turnStrength * Input.GetAxis("RightTrigger");
+        //Turning
+        currTurn = Input.GetAxis("LeftStickHorizontal") * turnModifier;
 
         Debug.Log(VelocityFilter.GetLocalVelocity(parentRigidbody));
 
@@ -155,28 +221,20 @@ public class Drivable : MonoBehaviour
     {
 
         VelocityFilter.DampY(parentRigidbody, maxYVelocity, yDamp);
-        //Lock chassis to position.
 
+        //Lock chassis to position.
         //TODO: Add phyiscality with a configurable joint.
         chassisRigidbody.transform.position = transform.position;
 
-        //Update the dynamic up point.
-        dynamicUpPoint.transform.position = dynamicUpPos;
-        //Then update our heading.
-        Vector3 dynamicUp = dynamicUpPoint.transform.position - transform.position;
+        UpdatePlayerUp();
 
-        //Have the gimbal look at the up position.
-        gimbal.transform.LookAt(dynamicUpPoint.transform, transform.up);
-        //Lerp the parent player object to match the gimbal rotation.
-        transform.rotation = Quaternion.Lerp(transform.rotation, gimbal.transform.rotation, Time.deltaTime * orientationSpeed);
-
-        chassisRigidbody.AddTorque(chassisRigidbody.transform.up * turnStrength * Input.GetAxis("LeftStickHorizontal"));
+        chassisRigidbody.AddTorque(chassisRigidbody.transform.up * currTurn);
 
         if (Physics.Raycast(transform.position, -chassisRigidbody.transform.up, out hit, floorCheckDist, layerMask))
         {
 
             //Do this always when we are inside floor check distance.
-
+            LevelOut();
             float orientationSpeedAdj = orientationSpeed * (1 / hit.distance);
             float magnetStrengthAdj = magnetStrength * (1 / hit.distance);
 
@@ -190,8 +248,9 @@ public class Drivable : MonoBehaviour
                 //If we haven't reached magnetise distance.
                 LevelOut();
                 gimbal.transform.position = transform.position;
-                parentRigidbody.drag = 0;
+                parentRigidbody.drag = 0.5f;
                 parentRigidbody.AddForce(Vector3.down * 50);
+                turnModifier = turnStrength;
 
             }
 
@@ -200,11 +259,32 @@ public class Drivable : MonoBehaviour
 
                 //If we are in magentise ditance.
 
-                //Adjust the probes predictive forward based on current speed.
-                foreach (NormalProbe normalProbe in normalProbes)
+                // //Normal way of doing it.
+                dynamicUpPos = hit.point + smoothNormal * dynamicUpHeight;
+
+                //Normal probe has a prediction factor that lifts the predicted normal.
+                //When we are driving forwards, up slopes, we need to adjust this to reflect the change in angle.
+                float angleSlack = Vector3.Angle(new Vector3(0, VelocityFilter.GetLocalVelocity(chassisRigidbody).y, 0), forwardDirection);
+                //Account for LOOK AT rotational offset.
+                angleSlack -= 90;
+                Debug.Log("Angle slack is " + angleSlack);
+                //Adjust the forward prediction based on the discrepency between current forward velocity and predictied forward.
+                //The higher/lower this number means we are driving into or away from the surface. Very useful.
+                forwardProbe.predictionFactor = (angleSlack / 100) * predictiveLift;
+
+                //Handbrake
+                if (Input.GetButtonDown("RightBumper"))
                 {
-                    //Assign predictive lift as a percentage of velocity.
-                    normalProbe.predictionFactor = (parentRigidbody.velocity.magnitude / 100) * predictiveLift;
+
+                    StartCoroutine(DoHandbrake());
+
+                }
+
+                if (Input.GetButtonDown("ControllerA"))
+                {
+
+                    StartCoroutine(DoBoost());
+
                 }
 
                 parentRigidbody.drag = 3;
@@ -212,18 +292,12 @@ public class Drivable : MonoBehaviour
                 //Snap our gimbal to our hover height.
                 gimbal.transform.position = hoverPos;
                 //Lerp the player position to the gimbal position.
-                transform.position = hoverPos;
-
+                transform.position = Vector3.Lerp(transform.position, gimbal.transform.position, Time.deltaTime * magnetStrength);
                 //Adjust the acceleration direction to use the predictive forward from our forward probe.
-                forwardDirection = forwardProbe.probedForward;
+                forwardDirection = forwardProbe.probedForwardAdj;
                 reverseDirection = backProbe.probedForward;
 
                 Vector3 normalHeading = hit.point - chassisRigidbody.transform.position;
-
-                // //Normal way of doing it.
-                dynamicUpPos = hit.point + smoothNormal * dynamicUpHeight;
-                // //Unsmoothed(road mesh only works with this, apparently)
-                // dynamicUpPos = hit.point + hit.normal * dynamicUpHeight;
 
                 //Rotate the gimbal equal to the dive offset.
                 dive = Vector3.Angle(forwardProbe.probedForward, chassisRigidbody.transform.forward);
@@ -258,22 +332,23 @@ public class Drivable : MonoBehaviour
 
             LevelOut();
             gimbal.transform.position = transform.position;
-            VelocityFilter.LockUpwards(parentRigidbody, yDamp);
-            parentRigidbody.drag = 0f;
-            parentRigidbody.AddForce(Vector3.down * 70);
+            //VelocityFilter.LockUpwards(parentRigidbody, yDamp);
+            parentRigidbody.drag = 0.5f;
+            parentRigidbody.AddForce(Vector3.down * 60);
+            turnModifier = turnStrength;
 
         }
 
         Debug.Log("Position factor is " + positionFactor);
         Debug.Log("Absolute PF is " + Mathf.Abs(positionFactor));
         Debug.Log("Distance from hover height is " + magnetSnapModifier);
-        Debug.Log("Attract force is " + attractionModifier);
-        Debug.Log("Repel force " + repulsionModifier);
         Debug.Log("Velocity magnitude is " + parentRigidbody.velocity.magnitude);
         Debug.Log("Normal up is " + hit.normal);
         Debug.Log("Dive angle is " + dive);
+        Debug.Log("Current turn = " + currTurn);
+        Debug.Log("Sideways velocity is " + Mathf.Abs(VelocityFilter.GetLocalVelocity(parentRigidbody).x));
 
-        Debug.DrawRay(forwardProbe.transform.position, forwardProbe.probedForward * 5, Color.white, 3.0f);
+        //Debug.DrawRay(forwardProbe.transform.position, forwardProbe.probedForward * 5, Color.white, 3.0f);
         Debug.DrawRay(transform.position, parentRigidbody.velocity / 20, Color.yellow, 3.0f);
 
     }

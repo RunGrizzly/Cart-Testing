@@ -6,7 +6,21 @@ using UnityEngine;
 public class GameManager : MonoBehaviour
 {
 
-    // public static GameManager ins;
+    CarInfoDisplay carInfoDisplay;
+    public Camera mainCamera;
+
+    public static GameManager ins;
+
+    private void Awake()
+    {
+        ins = this;
+    }
+
+    private void Start()
+    {
+        carInfoDisplay = GameObject.Find("ScreenUI").GetComponent<CarInfoDisplay>();
+        carInfoDisplay.GetComponent<Canvas>().worldCamera = mainCamera;
+    }
 
     // [Header("Sub Managers")]
     // public UIManager uiManager;

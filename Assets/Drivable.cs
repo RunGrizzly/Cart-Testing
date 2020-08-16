@@ -11,6 +11,7 @@ public class Drivable : MonoBehaviour
     public bool seeFloor;
     public bool isMagnetised;
     public bool isLevelling = false;
+    public bool isRolling = false;
 
     [Space(5)]
     [Header("Required References")]
@@ -32,6 +33,9 @@ public class Drivable : MonoBehaviour
     public List<Rigidbody> wheels = new List<Rigidbody>();
     [Space(5)]
     public LayerMask layerMask;
+
+    [Space(5)]
+    public ConfigurableJoint bodyJoint;
 
     Vector3 forwardDirection;
     Vector3 reverseDirection;
@@ -65,6 +69,10 @@ public class Drivable : MonoBehaviour
     //Rotate the gimbal equal to the dive offset.
     float dive;
     float positionFactor;
+
+    [Space(5)]
+    [Header("Customisable Parameters")]
+    public float spoilerDownforce;
 
     [Space(5)]
     [Header("Turning")]
@@ -242,6 +250,33 @@ public class Drivable : MonoBehaviour
 
     }
 
+    IEnumerator DoBarrelRoll()
+    {
+
+        if (isRolling == false)
+        {
+
+            isRolling = true;
+
+            float roll = 0;
+
+            bodyJoint.angularZMotion = ConfigurableJointMotion.Free;
+            chassisRigidbody.angularDrag = 3;
+
+            chassisRigidbody.AddTorque(chassisRigidbody.transform.forward * 30f);
+
+            while (isMagnetised == false)
+            {
+
+                yield return null;
+            }
+            bodyJoint.angularZMotion = ConfigurableJointMotion.Locked;
+            chassisRigidbody.angularDrag = 25f;
+            isRolling = false;
+        }
+
+    }
+
     void Update()
     {
 
@@ -264,7 +299,7 @@ public class Drivable : MonoBehaviour
 
         //Lock chassis to position.
         //TODO: Add phyiscality with a configurable joint.
-        chassisRigidbody.transform.position = transform.position;
+        //chassisRigidbody.transform.position = transform.position;
 
         UpdatePlayerUp();
 
@@ -289,6 +324,14 @@ public class Drivable : MonoBehaviour
             if (hit.distance > magnetiseDistance)
             {
 
+                isMagnetised = false;
+
+                //Barrel Roll
+                if (Input.GetButtonDown("LeftBumper"))
+                {
+                    StartCoroutine(DoBarrelRoll());
+                }
+
                 //If we haven't reached magnetise distance.
                 LevelOut();
                 gimbal.transform.position = transform.position;
@@ -302,7 +345,7 @@ public class Drivable : MonoBehaviour
             {
 
                 isMagnetised = true;
-
+                SetDrag(3, 1);
                 //If we are in magentise ditance.
 
                 // //Normal way of doing it.
@@ -317,23 +360,6 @@ public class Drivable : MonoBehaviour
                 //Adjust the forward prediction based on the discrepency between current forward velocity and predictied forward.
                 //The higher/lower this number means we are driving into or away from the surface. Very useful.
                 forwardProbe.predictionFactor = (angleSlack / 100) * predictiveLift;
-
-                //Handbrake
-                if (Input.GetButtonDown("RightBumper"))
-                {
-
-                    StartCoroutine(DoHandbrake());
-
-                }
-
-                if (Input.GetButtonDown("ControllerA"))
-                {
-
-                    StartCoroutine(DoBoost());
-
-                }
-
-                SetDrag(3, 1);
 
                 //Snap our gimbal to our hover height.
                 gimbal.transform.position = hoverPos;
@@ -353,11 +379,20 @@ public class Drivable : MonoBehaviour
                 //Distance to target height.
                 magnetSnapModifier = Vector3.Distance(transform.position, hoverPos);
 
-                // attraction = (dynamicUp.normalized * repulsionModifier);
-                // repulsion = (dynamicUp.normalized * attractionModifier);
+                //Handbrake
+                if (Input.GetButtonDown("RightBumper"))
+                {
 
-                // parentRigidbody.AddForce(attraction);
-                // parentRigidbody.AddForce(repulsion);
+                    StartCoroutine(DoHandbrake());
+
+                }
+
+                if (Input.GetButtonDown("ControllerA"))
+                {
+
+                    StartCoroutine(DoBoost());
+
+                }
 
                 // Forward force.
                 parentRigidbody.AddForceAtPosition(forwardDirection * currThrust, forcePointFront.transform.position);

@@ -8,6 +8,9 @@ public class Drivable : MonoBehaviour
     //The raycast with important hit information related to the normal of the surface.
     RaycastHit hit;
 
+    public bool seeFloor;
+    public bool magnetised;
+
     [Space(5)]
     [Header("Required References")]
     public GameObject forcePointFront;
@@ -233,6 +236,8 @@ public class Drivable : MonoBehaviour
         if (Physics.Raycast(transform.position, -chassisRigidbody.transform.up, out hit, floorCheckDist, layerMask))
         {
 
+            seeFloor = true;
+
             //Do this always when we are inside floor check distance.
             LevelOut();
             float orientationSpeedAdj = orientationSpeed * (1 / hit.distance);
@@ -245,6 +250,7 @@ public class Drivable : MonoBehaviour
 
             if (hit.distance > magnetiseDistance)
             {
+
                 //If we haven't reached magnetise distance.
                 LevelOut();
                 gimbal.transform.position = transform.position;
@@ -256,6 +262,8 @@ public class Drivable : MonoBehaviour
 
             else if (hit.distance < magnetiseDistance)
             {
+
+                magnetised = true;
 
                 //If we are in magentise ditance.
 
@@ -327,6 +335,9 @@ public class Drivable : MonoBehaviour
         //If we are outside floor check distance.
         else
         {
+
+            seeFloor = false;
+            magnetised = false;
 
             //Do this outside floor check distance.
 

@@ -12,6 +12,8 @@ public class CarInfoDisplay : MonoBehaviour
     public TextMeshProUGUI localVelocityXDisp;
     public TextMeshProUGUI localVelocityYDisp;
     public TextMeshProUGUI localVelocityZDisp;
+    public TextMeshProUGUI magnetCheckDisp;
+    public TextMeshProUGUI seeFloorDisp;
 
     private void Start()
     {
@@ -24,6 +26,26 @@ public class CarInfoDisplay : MonoBehaviour
         localVelocityXDisp.text = "X Velocity: " + "\n" + Mathf.RoundToInt(VelocityFilter.GetLocalVelocity(target.chassisRigidbody).x);
         localVelocityYDisp.text = "Y Velocity: " + "\n" + Mathf.RoundToInt(VelocityFilter.GetLocalVelocity(target.chassisRigidbody).y);
         localVelocityZDisp.text = "Z Velocity: " + "\n" + Mathf.RoundToInt(VelocityFilter.GetLocalVelocity(target.chassisRigidbody).z);
+
+        if (target.seeFloor == true)
+        {
+            seeFloorDisp.color = Color.green;
+        }
+        else
+        {
+            seeFloorDisp.color = Color.red;
+        }
+
+        if (target.magnetised == true)
+        {
+
+            magnetCheckDisp.color = Color.green;
+        }
+        else
+        {
+
+            magnetCheckDisp.color = Color.red;
+        }
 
     }
 }

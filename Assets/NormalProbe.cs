@@ -18,6 +18,8 @@ public class NormalProbe : MonoBehaviour
 
     Vector3 helperPosition;
 
+    public RaycastHit hit;
+
     public Vector3 normal;
     public Vector3 smoothedNormal;
     public Vector3 point;
@@ -29,7 +31,7 @@ public class NormalProbe : MonoBehaviour
     {
         if (drawGizmo == true)
         {
-            RaycastHit hit;
+
             if (Physics.Raycast(transform.position, -transform.up, out hit, probeDist, layerMask))
             {
 
@@ -65,10 +67,12 @@ public class NormalProbe : MonoBehaviour
             normal = hit.normal;
             smoothedNormal = NormalSmoother.SmoothedNormal(hit);
             point = hit.point;
+            helperPosition = transform.position + -transform.up * hit.distance / 2;
             probedForward = Quaternion.AngleAxis((90), transform.right) * smoothedNormal;
             probedForwardAdj = Quaternion.AngleAxis((90 - predictionFactor), transform.right) * smoothedNormal;
-            Debug.DrawRay(helperPosition, probedForward * 5.0f, Color.blue, 2.0f);
-            Debug.DrawRay(helperPosition, probedForwardAdj * 5.0f, Color.cyan, 2.0f);
+            Debug.DrawRay(helperPosition, probedForward * 5.0f, Color.red, 3.0f);
+            Debug.DrawRay(helperPosition, probedForwardAdj * 5.0f, Color.yellow, 3.0f);
+            Debug.Log(gameObject.name + hit.distance);
 
         }
     }

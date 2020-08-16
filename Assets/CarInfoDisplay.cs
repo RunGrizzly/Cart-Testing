@@ -36,7 +36,7 @@ public class CarInfoDisplay : MonoBehaviour
             seeFloorDisp.color = Color.red;
         }
 
-        if (target.magnetised == true)
+        if (target.isMagnetised == true)
         {
 
             magnetCheckDisp.color = Color.green;

@@ -9,7 +9,8 @@ public class Drivable : MonoBehaviour
     RaycastHit hit;
 
     public bool seeFloor;
-    public bool magnetised;
+    public bool isMagnetised;
+    public bool isLevelling = false;
 
     [Space(5)]
     [Header("Required References")]
@@ -50,6 +51,7 @@ public class Drivable : MonoBehaviour
 
     [Space(5)]
     [Header("Physics Parameters")]
+    public float falseGravity;
     public float dynamicUpHeight;
     public float magnetiseDistance;
     public float orientationSpeed;
@@ -148,8 +150,41 @@ public class Drivable : MonoBehaviour
     //If we're upside down and in freefall.
     void LevelOut()
     {
-        //Level self
-        dynamicUpPos = Vector3.Lerp(dynamicUpPos, transform.position + Vector3.up * dynamicUpHeight, Time.deltaTime * levelSpeed);
+        dynamicUpPos = transform.position + (Vector3.up * dynamicUpHeight);
+
+        if (isLevelling == false)
+        {
+            StartCoroutine(LevelSelf());
+        }
+    }
+
+    IEnumerator LevelSelf()
+    {
+
+        isLevelling = true;
+
+        Debug.Log("Levelling");
+
+        orientationSpeed = 0;
+        //Set drag
+        SetDrag(0.25f, 0.25f);
+
+        //While we haven't remagnetised.
+        while (isMagnetised == false)
+        {
+            orientationSpeed = Mathf.Lerp(orientationSpeed, 50.0f, Time.deltaTime / 100 * levelSpeed);
+
+            yield return null;
+        }
+
+        orientationSpeed = 50.0f;
+        isLevelling = false;
+    }
+
+    void SetDrag(float parentDrag, float chassisDrag)
+    {
+        parentRigidbody.drag = parentDrag;
+        chassisRigidbody.drag = chassisDrag;
     }
     //If we are sticking to a surface.
     void UpdatePlayerUp()
@@ -223,7 +258,9 @@ public class Drivable : MonoBehaviour
     void FixedUpdate()
     {
 
-        VelocityFilter.DampY(parentRigidbody, maxYVelocity, yDamp);
+        Debug.DrawRay(transform.position, -chassisRigidbody.transform.up * magnetiseDistance, Color.black, 1.0f);
+
+        //VelocityFilter.DampY(parentRigidbody, maxYVelocity, yDamp);
 
         //Lock chassis to position.
         //TODO: Add phyiscality with a configurable joint.
@@ -241,9 +278,10 @@ public class Drivable : MonoBehaviour
             //Do this always when we are inside floor check distance.
             LevelOut();
             float orientationSpeedAdj = orientationSpeed * (1 / hit.distance);
-            float magnetStrengthAdj = magnetStrength * (1 / hit.distance);
+            float magnetStrengthAdj = magnetStrength * Mathf.Pow(hit.distance, 3);
 
             Vector3 smoothNormal = NormalSmoother.SmoothedNormal(hit);
+
             Debug.DrawRay(hit.point, smoothNormal * 5.0f, Color.white, 2.0f);
 
             hoverPos = hit.point + smoothNormal * hoverHeight;
@@ -254,7 +292,7 @@ public class Drivable : MonoBehaviour
                 //If we haven't reached magnetise distance.
                 LevelOut();
                 gimbal.transform.position = transform.position;
-                parentRigidbody.drag = 0.5f;
+
                 parentRigidbody.AddForce(Vector3.down * 50);
                 turnModifier = turnStrength;
 
@@ -263,7 +301,7 @@ public class Drivable : MonoBehaviour
             else if (hit.distance < magnetiseDistance)
             {
 
-                magnetised = true;
+                isMagnetised = true;
 
                 //If we are in magentise ditance.
 
@@ -295,12 +333,12 @@ public class Drivable : MonoBehaviour
 
                 }
 
-                parentRigidbody.drag = 3;
+                SetDrag(3, 1);
 
                 //Snap our gimbal to our hover height.
                 gimbal.transform.position = hoverPos;
                 //Lerp the player position to the gimbal position.
-                transform.position = Vector3.Lerp(transform.position, gimbal.transform.position, Time.deltaTime * magnetStrength);
+                transform.position = Vector3.Lerp(transform.position, gimbal.transform.position, Time.deltaTime * magnetStrengthAdj);
                 //Adjust the acceleration direction to use the predictive forward from our forward probe.
                 forwardDirection = forwardProbe.probedForwardAdj;
                 reverseDirection = backProbe.probedForward;
@@ -337,15 +375,16 @@ public class Drivable : MonoBehaviour
         {
 
             seeFloor = false;
-            magnetised = false;
+            isMagnetised = false;
 
             //Do this outside floor check distance.
 
             LevelOut();
+
             gimbal.transform.position = transform.position;
             //VelocityFilter.LockUpwards(parentRigidbody, yDamp);
-            parentRigidbody.drag = 0.5f;
-            parentRigidbody.AddForce(Vector3.down * 60);
+
+            parentRigidbody.AddForceAtPosition((Vector3.down * falseGravity + parentRigidbody.velocity) / 2, forcePointFront.transform.position);
             turnModifier = turnStrength;
 
         }

@@ -8,6 +8,7 @@ public class GameManager : MonoBehaviour
 
     CarInfoDisplay carInfoDisplay;
     public Camera mainCamera;
+    public Camera uiCamera;
 
     public static GameManager ins;
 
@@ -19,7 +20,7 @@ public class GameManager : MonoBehaviour
     private void Start()
     {
         carInfoDisplay = GameObject.Find("ScreenUI").GetComponent<CarInfoDisplay>();
-        carInfoDisplay.GetComponent<Canvas>().worldCamera = mainCamera;
+        carInfoDisplay.GetComponent<Canvas>().worldCamera = uiCamera;
     }
 
     // [Header("Sub Managers")]

@@ -99,6 +99,8 @@ public class Drivable : MonoBehaviour
         //Lock the gimbal to our position.
         gimbal.transform.position = transform.position;
 
+        GameManager.ins.mainCamera.GetComponent<CameraMotionControl>().FreezeRoll(false);
+
     }
 
     Vector3 GetAverageNormal(Vector3 hitNormal)
@@ -210,6 +212,29 @@ public class Drivable : MonoBehaviour
         dynamicUpHeading = dynamicUpPoint.transform.position - transform.position;
     }
 
+    IEnumerator DoPop()
+    {
+        //For popping off of magnetised surfaces.
+        Debug.Log("Pop");
+
+        float md = magnetiseDistance;
+
+        //de magnetise.
+        magnetiseDistance = 0;
+        //Add upwards force(relative to chassis)
+        parentRigidbody.AddForce(chassisRigidbody.transform.up * 1750);
+
+        //While we are still in magnetise range.
+        while (hit.distance <= md)
+        {
+            yield return null;
+        }
+
+        //Once we escape magnet range.
+        magnetiseDistance = md;
+
+    }
+
     IEnumerator DoHandbrake()
     {
 
@@ -250,31 +275,32 @@ public class Drivable : MonoBehaviour
 
     }
 
-    IEnumerator DoBarrelRoll()
+    IEnumerator StartRoll()
     {
 
-        if (isRolling == false)
+        isRolling = true;
+
+        float roll = 0;
+
+        GameManager.ins.mainCamera.GetComponent<CameraMotionControl>().FreezeRoll(true);
+
+        //chassisRigidbody.isKinematic = true;
+
+        LeanTween.rotateAround(chassisRigidbody.gameObject, chassisRigidbody.transform.forward, 360, 1.0f).setEase(LeanTweenType.easeOutQuad).setOnComplete(FinishRoll);
+
+        while (isRolling == true)
         {
 
-            isRolling = true;
-
-            float roll = 0;
-
-            bodyJoint.angularZMotion = ConfigurableJointMotion.Free;
-            chassisRigidbody.angularDrag = 3;
-
-            chassisRigidbody.AddTorque(chassisRigidbody.transform.forward * 30f);
-
-            while (isMagnetised == false)
-            {
-
-                yield return null;
-            }
-            bodyJoint.angularZMotion = ConfigurableJointMotion.Locked;
-            chassisRigidbody.angularDrag = 25f;
-            isRolling = false;
+            yield return null;
         }
 
+        GameManager.ins.mainCamera.GetComponent<CameraMotionControl>().FreezeRoll(false);
+
+    }
+
+    void FinishRoll()
+    {
+        isRolling = false;
     }
 
     void Update()
@@ -326,10 +352,14 @@ public class Drivable : MonoBehaviour
 
                 isMagnetised = false;
 
-                //Barrel Roll
-                if (Input.GetButtonDown("LeftBumper"))
+                if (isRolling == false)
                 {
-                    StartCoroutine(DoBarrelRoll());
+                    //Barrel Roll
+                    if (Input.GetButtonDown("LeftBumper"))
+                    {
+                        Debug.Log("Press barrel roll button");
+                        StartCoroutine(StartRoll());
+                    }
                 }
 
                 //If we haven't reached magnetise distance.
@@ -386,11 +416,18 @@ public class Drivable : MonoBehaviour
                     StartCoroutine(DoHandbrake());
 
                 }
-
+                //Boost
                 if (Input.GetButtonDown("ControllerA"))
                 {
 
                     StartCoroutine(DoBoost());
+
+                }
+                //Pop
+                if (Input.GetButtonDown("ControllerX"))
+                {
+
+                    StartCoroutine(DoPop());
 
                 }
 

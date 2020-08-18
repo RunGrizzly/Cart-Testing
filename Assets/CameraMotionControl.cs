@@ -12,6 +12,8 @@ public class CameraMotionControl : MonoBehaviour
     private void Start()
     {
         cmCam = GetComponentInChildren<CinemachineVirtualCamera>();
+
+        FreezeRoll(false);
     }
 
     // if (target.isMagnetised == false)

@@ -18,6 +18,9 @@ public class CarInfoDisplay : MonoBehaviour
     private void Start()
     {
         target = GameObject.FindGameObjectWithTag("Player").GetComponent<Drivable>();
+        GameManager.ins.carInfoDisplay = this;
+        GetComponent<Canvas>().worldCamera = GameManager.ins.uiCamera;
+        GetComponent<Canvas>().planeDistance = 1;
     }
 
     private void Update()

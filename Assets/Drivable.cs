@@ -30,7 +30,7 @@ public class Drivable : MonoBehaviour
     [Space(5)]
     public Rigidbody parentRigidbody;
     public Rigidbody chassisRigidbody;
-    public List<Rigidbody> wheels = new List<Rigidbody>();
+    public List<Transform> wheels = new List<Transform>();
     [Space(5)]
     public LayerMask layerMask;
 
@@ -99,7 +99,7 @@ public class Drivable : MonoBehaviour
         //Lock the gimbal to our position.
         gimbal.transform.position = transform.position;
 
-        GameManager.ins.mainCamera.GetComponent<CameraMotionControl>().FreezeRoll(false);
+        // GameManager.ins.mainCamera.GetComponent<CameraMotionControl>().FreezeRoll(false);
 
     }
 
@@ -311,6 +311,9 @@ public class Drivable : MonoBehaviour
         currBrake = Input.GetAxis("LeftTrigger") * backwardAcl;
         //Turning
         currTurn = Input.GetAxis("LeftStickHorizontal") * turnModifier;
+        //Turn wheels according to left stick input.
+        wheels[0].localEulerAngles = new Vector3(wheels[0].localEulerAngles.x, Input.GetAxis("LeftStickHorizontal") * 45, wheels[0].localEulerAngles.z);
+        wheels[1].localEulerAngles = new Vector3(wheels[1].localEulerAngles.x, Input.GetAxis("LeftStickHorizontal") * 45, wheels[1].localEulerAngles.z);
 
         Debug.Log(VelocityFilter.GetLocalVelocity(parentRigidbody));
 
@@ -320,12 +323,6 @@ public class Drivable : MonoBehaviour
     {
 
         Debug.DrawRay(transform.position, -chassisRigidbody.transform.up * magnetiseDistance, Color.black, 1.0f);
-
-        //VelocityFilter.DampY(parentRigidbody, maxYVelocity, yDamp);
-
-        //Lock chassis to position.
-        //TODO: Add phyiscality with a configurable joint.
-        //chassisRigidbody.transform.position = transform.position;
 
         UpdatePlayerUp();
 

@@ -6,7 +6,7 @@ using UnityEngine;
 public class GameManager : MonoBehaviour
 {
 
-    CarInfoDisplay carInfoDisplay;
+    public CarInfoDisplay carInfoDisplay;
     public Camera mainCamera;
     public Camera uiCamera;
 
@@ -19,8 +19,7 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        carInfoDisplay = GameObject.Find("ScreenUI").GetComponent<CarInfoDisplay>();
-        carInfoDisplay.GetComponent<Canvas>().worldCamera = uiCamera;
+
     }
 
     // [Header("Sub Managers")]

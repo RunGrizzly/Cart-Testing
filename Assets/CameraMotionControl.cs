@@ -41,7 +41,7 @@ public class CameraMotionControl : MonoBehaviour
         }
         else
         {
-            cmCam.GetCinemachineComponent<CinemachineTransposer>().m_RollDamping = 0.2f;
+            cmCam.GetCinemachineComponent<CinemachineTransposer>().m_RollDamping = 0.75f;
         }
 
     }

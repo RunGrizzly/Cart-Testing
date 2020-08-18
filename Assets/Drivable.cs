@@ -39,6 +39,9 @@ public class Drivable : MonoBehaviour
 
     Vector3 forwardDirection;
     Vector3 reverseDirection;
+    public Vector3 forwardForce;
+    public Vector3 reverseForce;
+
     Vector3 lastNormal = Vector3.zero;
     Vector3 lastPoint = Vector3.zero;
     Vector3 attraction;
@@ -79,8 +82,8 @@ public class Drivable : MonoBehaviour
     public float turnStrength;
     public float handbrakeStrength;
     float turnModifier;
-    [Range(-45, 45)]
-    float currTurn = 0.0f;
+
+    float currTurn;
     [Header("Movement")]
     public float forwardAcl;
     public float backwardAcl;
@@ -222,7 +225,7 @@ public class Drivable : MonoBehaviour
         //de magnetise.
         magnetiseDistance = 0;
         //Add upwards force(relative to chassis)
-        parentRigidbody.AddForce(chassisRigidbody.transform.up * 1750);
+        parentRigidbody.AddForceAtPosition(chassisRigidbody.transform.up * 3000, forcePointFront.transform.position);
 
         //While we are still in magnetise range.
         while (hit.distance <= md)
@@ -303,6 +306,19 @@ public class Drivable : MonoBehaviour
         isRolling = false;
     }
 
+    void WheelBehaviour()
+    {
+        //Turn wheels according to left stick input.
+        wheels[0].localEulerAngles = new Vector3(wheels[0].localEulerAngles.x, currTurn, wheels[0].localEulerAngles.z);
+        wheels[1].localEulerAngles = new Vector3(wheels[1].localEulerAngles.x, currTurn, wheels[1].localEulerAngles.z);
+
+        foreach (Transform wheel in wheels)
+        {
+            wheel.RotateAround(wheel.position, wheel.transform.right, VelocityFilter.GetLocalVelocity(chassisRigidbody).z);
+        }
+
+    }
+
     void Update()
     {
 
@@ -311,9 +327,14 @@ public class Drivable : MonoBehaviour
         currBrake = Input.GetAxis("LeftTrigger") * backwardAcl;
         //Turning
         currTurn = Input.GetAxis("LeftStickHorizontal") * turnModifier;
-        //Turn wheels according to left stick input.
-        wheels[0].localEulerAngles = new Vector3(wheels[0].localEulerAngles.x, Input.GetAxis("LeftStickHorizontal") * 45, wheels[0].localEulerAngles.z);
-        wheels[1].localEulerAngles = new Vector3(wheels[1].localEulerAngles.x, Input.GetAxis("LeftStickHorizontal") * 45, wheels[1].localEulerAngles.z);
+        WheelBehaviour();
+        forcePointFront.transform.localEulerAngles = new Vector3(forcePointFront.transform.localEulerAngles.x, currTurn, forcePointFront.transform.localEulerAngles.z);
+        forcePointBack.transform.localEulerAngles = new Vector3(forcePointBack.transform.localEulerAngles.x, currTurn * -1, forcePointBack.transform.localEulerAngles.z);
+
+        //Calculate forward/backwards direction based on this.
+        //Adjust the acceleration direction to use the predictive forward from our forward probe.
+        forwardDirection = forwardProbe.probedForwardAdj;
+        reverseDirection = backProbe.probedForwardAdj;
 
         Debug.Log(VelocityFilter.GetLocalVelocity(parentRigidbody));
 
@@ -326,7 +347,7 @@ public class Drivable : MonoBehaviour
 
         UpdatePlayerUp();
 
-        chassisRigidbody.AddTorque(chassisRigidbody.transform.up * currTurn);
+        //chassisRigidbody.AddTorque(chassisRigidbody.transform.up * currTurn);
 
         if (Physics.Raycast(transform.position, -chassisRigidbody.transform.up, out hit, floorCheckDist, layerMask))
         {
@@ -392,9 +413,6 @@ public class Drivable : MonoBehaviour
                 gimbal.transform.position = hoverPos;
                 //Lerp the player position to the gimbal position.
                 transform.position = Vector3.Lerp(transform.position, gimbal.transform.position, Time.deltaTime * magnetStrengthAdj);
-                //Adjust the acceleration direction to use the predictive forward from our forward probe.
-                forwardDirection = forwardProbe.probedForwardAdj;
-                reverseDirection = backProbe.probedForward;
 
                 Vector3 normalHeading = hit.point - chassisRigidbody.transform.position;
 
@@ -428,10 +446,12 @@ public class Drivable : MonoBehaviour
 
                 }
 
+                forwardForce = ((forwardDirection + chassisRigidbody.transform.forward) / 2) * currThrust;
+                reverseForce = ((reverseDirection - chassisRigidbody.transform.forward) / 2) * currBrake;
                 // Forward force.
-                parentRigidbody.AddForceAtPosition(forwardDirection * currThrust, forcePointFront.transform.position);
+                parentRigidbody.AddForceAtPosition(forwardForce, forcePointFront.transform.position);
                 // Backward force.
-                parentRigidbody.AddForceAtPosition(reverseDirection * currBrake, forcePointBack.transform.position);
+                parentRigidbody.AddForceAtPosition(reverseForce, forcePointBack.transform.position);
 
                 lastNormal = hit.normal;
                 lastPoint = hit.point;

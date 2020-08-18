@@ -14,6 +14,8 @@ public class CarInfoDisplay : MonoBehaviour
     public TextMeshProUGUI localVelocityZDisp;
     public TextMeshProUGUI magnetCheckDisp;
     public TextMeshProUGUI seeFloorDisp;
+    public TextMeshProUGUI forwardForceDisp;
+    public TextMeshProUGUI reverseForceDisp;
 
     private void Start()
     {
@@ -29,6 +31,8 @@ public class CarInfoDisplay : MonoBehaviour
         localVelocityXDisp.text = "X Velocity: " + "\n" + Mathf.RoundToInt(VelocityFilter.GetLocalVelocity(target.chassisRigidbody).x);
         localVelocityYDisp.text = "Y Velocity: " + "\n" + Mathf.RoundToInt(VelocityFilter.GetLocalVelocity(target.chassisRigidbody).y);
         localVelocityZDisp.text = "Z Velocity: " + "\n" + Mathf.RoundToInt(VelocityFilter.GetLocalVelocity(target.chassisRigidbody).z);
+        forwardForceDisp.text = "Forward: " + "\n" + Mathf.RoundToInt(target.forwardForce.magnitude).ToString();
+        reverseForceDisp.text = "Reverse: " + "\n" + Mathf.RoundToInt(target.reverseForce.magnitude).ToString();
 
         if (target.seeFloor == true)
         {

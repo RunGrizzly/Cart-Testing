@@ -10,28 +10,28 @@ public class SaveMeshInEditor : MonoBehaviour
     public string saveName = "SavedMesh";
     public Transform selectedGameObject;
 
-    // private void Start()
-    // {
-    //     Debug.Log("Initialised mesh saver");
-    // }
+    private void Start()
+    {
+        Debug.Log("Initialised mesh saver");
+    }
 
-    // void Update()
-    // {
-    //     if (Input.GetKeyDown("space"))
-    //     {
-    //         Debug.Log("Saving Mesh");
-    //         SaveAsset();
-    //     }
-    // }
+    void Update()
+    {
+        if (Input.GetKeyDown("space"))
+        {
+            Debug.Log("Saving Mesh");
+            SaveAsset();
+        }
+    }
 
-    // void SaveAsset()
-    // {
-    //     var mf = selectedGameObject.GetComponent<MeshFilter>();
-    //     // if (mf)
-    //     // {
-    //     var savePath = "Assets/" + saveName + ".asset";
-    //     Debug.Log("Saved Mesh to:" + savePath);
-    //     AssetDatabase.CreateAsset(mf.mesh, savePath);
-    //     //}
-    // }
+    void SaveAsset()
+    {
+        var mf = selectedGameObject.GetComponent<MeshFilter>();
+        // if (mf)
+        // {
+        var savePath = "Assets/" + saveName + ".asset";
+        Debug.Log("Saved Mesh to:" + savePath);
+        AssetDatabase.CreateAsset(mf.mesh, savePath);
+        //}
+    }
 }

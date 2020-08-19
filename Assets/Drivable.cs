@@ -16,6 +16,9 @@ public class Drivable : MonoBehaviour
 
     [Space(5)]
     [Header("Required References")]
+
+    public Cart playerCart;
+
     public GameObject forcePointFront;
     public GameObject forcePointBack;
     public GameObject gimbal;
@@ -275,17 +278,22 @@ public class Drivable : MonoBehaviour
             float t = 0;
             float mt = maxThrust;
             float a = acceleration;
+            float er = playerCart.energyRegen;
+
             //Modify turn based on velocity and handbrake strength.
+            playerCart.energyRegen = 0;
             maxThrust *= 1.25f;
             acceleration *= 1.5f;
-            while (Input.GetButton("ControllerA") && t < 4f)
+            while (Input.GetButton("ControllerA") && t < 4f && playerCart.currEnergy > 0)
             {
 
+                playerCart.currEnergy -= 0.4f;
                 t += Time.deltaTime;
 
                 yield return null;
             }
 
+            playerCart.energyRegen = er;
             maxThrust = mt;
             acceleration = a;
 
@@ -388,7 +396,11 @@ public class Drivable : MonoBehaviour
 
             Debug.DrawRay(hit.point, smoothNormal * 5.0f, Color.white, 2.0f);
 
+            //Set pos to smooth normal.
             hoverPos = hit.point + smoothNormal * hoverHeight;
+
+            // //Set pos to regular normal.
+            // hoverPos = hit.point + hit.normal * hoverHeight;
 
             if (hit.distance > magnetiseDistance)
             {
@@ -421,8 +433,11 @@ public class Drivable : MonoBehaviour
                 SetDrag(3, 1);
                 //If we are in magentise ditance.
 
-                // //Normal way of doing it.
+                //Set to smooth normal.
                 dynamicUpPos = hit.point + smoothNormal * dynamicUpHeight;
+
+                // //Set to regular normal.
+                // dynamicUpPos = hit.point + hit.normal * dynamicUpHeight;
 
                 //Normal probe has a prediction factor that lifts the predicted normal.
                 //When we are driving forwards, up slopes, we need to adjust this to reflect the change in angle.

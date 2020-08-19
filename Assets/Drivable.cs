@@ -12,6 +12,7 @@ public class Drivable : MonoBehaviour
     public bool isMagnetised;
     public bool isLevelling = false;
     public bool isRolling = false;
+    public bool isBoosting = false;
 
     [Space(5)]
     [Header("Required References")]
@@ -85,11 +86,12 @@ public class Drivable : MonoBehaviour
 
     float currTurn;
     [Header("Movement")]
-    public float forwardAcl;
-    public float backwardAcl;
+    public float maxThrust;
+    public float acceleration;
     public float brakeStrength;
-    float currThrust = 0.0f;
-    float currBrake = 0.0f;
+
+    public float currThrust;
+    public float currBrake = 0.0f;
 
     void Start()
     {
@@ -263,17 +265,31 @@ public class Drivable : MonoBehaviour
     IEnumerator DoBoost()
     {
 
-        Debug.Log("Boosting");
-
-        float t = 0;
-
-        while (Input.GetButton("ControllerA") && t < 2.25f)
+        if (isBoosting == false)
         {
-            //Modify turn based on velocity and handbrake strength.
-            currThrust *= 1.25f;
-            t += Time.deltaTime;
 
-            yield return null;
+            isBoosting = true;
+
+            Debug.Log("Boosting");
+
+            float t = 0;
+            float mt = maxThrust;
+            float a = acceleration;
+            //Modify turn based on velocity and handbrake strength.
+            maxThrust *= 1.25f;
+            acceleration *= 1.5f;
+            while (Input.GetButton("ControllerA") && t < 4f)
+            {
+
+                t += Time.deltaTime;
+
+                yield return null;
+            }
+
+            maxThrust = mt;
+            acceleration = a;
+
+            isBoosting = false;
         }
 
     }
@@ -323,9 +339,18 @@ public class Drivable : MonoBehaviour
     {
 
         //Thrust
-        currThrust = Input.GetAxis("RightTrigger") * forwardAcl;
-        currBrake = Input.GetAxis("LeftTrigger") * backwardAcl;
+        //Thrust increases towards max power over time depending on the the right trigger state.
+        currThrust = Mathf.Lerp(currThrust, maxThrust, Time.deltaTime / 10 * acceleration * Input.GetAxis("RightTrigger"));
+        //Thrust decreases as the trigger is released.
+        currThrust = Mathf.Lerp(currThrust, 0, Time.deltaTime * (1 - Input.GetAxis("RightTrigger")));
+
+        //Brake increase towards brake strength as left trigger is pressed.
+        currBrake = Mathf.Lerp(currBrake, brakeStrength, Time.deltaTime * Input.GetAxis("LeftTrigger"));
+        //It also decreased as left trigger is released.
+        currBrake = Mathf.Lerp(currBrake, 0, Time.deltaTime * (1 - Input.GetAxis("LeftTrigger")));
+
         //Turning
+
         currTurn = Input.GetAxis("LeftStickHorizontal") * turnModifier;
         WheelBehaviour();
         forcePointFront.transform.localEulerAngles = new Vector3(forcePointFront.transform.localEulerAngles.x, currTurn, forcePointFront.transform.localEulerAngles.z);

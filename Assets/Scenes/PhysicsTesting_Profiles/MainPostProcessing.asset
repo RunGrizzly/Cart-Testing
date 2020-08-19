@@ -102,7 +102,7 @@ MonoBehaviour:
   m_AdvancedMode: 0
   postExposure:
     m_OverrideState: 1
-    m_Value: 0.36
+    m_Value: 1.23
   contrast:
     m_OverrideState: 1
     m_Value: -2
@@ -196,7 +196,7 @@ MonoBehaviour:
   m_AdvancedMode: 0
   intensity:
     m_OverrideState: 1
-    m_Value: 0.107
+    m_Value: 0.286
     min: 0
     max: 1
 --- !u!114 &8984446143195892933
@@ -218,7 +218,7 @@ MonoBehaviour:
     m_Value: 0
   intensity:
     m_OverrideState: 1
-    m_Value: 0.086
+    m_Value: 0.56
     min: 0
     max: 1
   response:
